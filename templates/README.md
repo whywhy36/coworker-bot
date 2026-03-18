@@ -141,7 +141,7 @@ Used to authenticate the Jira provider for polling issues and posting comments.
 
 **Used as:** `JIRA_WEBHOOK_SECRET`
 
-Used to verify that incoming webhook payloads are genuinely from Jira. Jira Cloud signs payloads with an HMAC-SHA256 signature using this secret.
+Used to verify that incoming webhook payloads are genuinely from Jira. Jira Cloud signs payloads with an HMAC-SHA256 signature using this secret. See [Secure admin webhooks — Atlassian](https://developer.atlassian.com/cloud/jira/platform/webhooks/#secure-admin-webhooks) for details.
 
 **How to get:**
 

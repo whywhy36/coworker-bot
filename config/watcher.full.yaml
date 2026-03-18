@@ -181,7 +181,7 @@ providers:
     pollingInterval: 60  # Poll every 60 seconds
 
     # Authentication
-    # Option A: Jira Cloud with an API token (recommended for Jira Cloud)
+    # Option A: Jira Cloud with an API token (regular user or bot account with email)
     auth:
       type: basic
       username: user@example.com       # Your Atlassian account email
@@ -192,10 +192,20 @@ providers:
     #   type: token
     #   tokenEnv: JIRA_PERSONAL_ACCESS_TOKEN
 
+    # Option C: Jira Cloud service account with a scoped API token
+    # Service accounts use scoped tokens (Bearer auth) and require routing through
+    # the Atlassian API gateway with your Cloud ID instead of the standard domain.
+    # To find your Cloud ID: curl https://yourcompany.atlassian.net/_edge/tenant_info
+    # botUsername must be set explicitly — auto-detection does not work for service accounts.
+    # auth:
+    #   type: token
+    #   tokenEnv: JIRA_API_TOKEN
+
     options:
       # Base URL of your Jira instance (required)
-      # Jira Cloud:  https://yourcompany.atlassian.net
-      # Jira Server: https://jira.yourcompany.com
+      # Jira Cloud (regular account):  https://yourcompany.atlassian.net
+      # Jira Cloud (service account):  https://api.atlassian.com/ex/jira/{cloudId}
+      # Jira Server:                   https://jira.yourcompany.com
       baseUrl: https://yourcompany.atlassian.net
 
       # Optional shared secret for webhook verification (recommended)
@@ -208,7 +218,8 @@ providers:
 
       # Bot display name for deduplication (required)
       # Must match the Jira display name of the bot account exactly (case-insensitive).
-      # If omitted, auto-detected from the authenticated credentials.
+      # If omitted, auto-detected via /rest/api/3/myself — works for regular accounts only.
+      # Must be set explicitly when using a service account with a scoped API token.
       botUsername: "Coworker Bot"
       # Multiple bot display names:
       # botUsername:

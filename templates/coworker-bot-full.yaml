@@ -91,6 +91,15 @@ env:
   # Omit or leave unset to disable posting entirely (read-only Slack access).
   # - SLACK_MCP_ADD_MESSAGE_TOOL=C01234567
 
+  # ---------------------------------------------------------------------------
+  # Jira secrets and configuration
+  # DELETE this block if you are not using Jira.
+  #
+  # Required secrets:
+  #   echo "YOUR_API_TOKEN" | cs secret create jira-api-token --shared -f -
+  # ---------------------------------------------------------------------------
+  - JIRA_API_TOKEN=${secret:jira-api-token}
+
 endpoints:
   # ---------------------------------------------------------------------------
   # Public webhook endpoint — receives events pushed from all providers.
@@ -169,6 +178,23 @@ endpoints:
       auth_proxy:
         disabled: true
       path: /sse
+
+  # ---------------------------------------------------------------------------
+  # Jira MCP internal endpoint
+  # DELETE if not using Jira.
+  # Routed through mcp-proxy which injects the Jira API token as a header.
+  # ---------------------------------------------------------------------------
+  - name: jira-mcp
+    type: INTERNAL
+    http:
+      routes:
+        - backend:
+            target: mcp-proxy
+            port: jira
+          path_prefix: /
+      auth_proxy:
+        disabled: true
+      path: /mcp
 
 workspaces:
   - name: dev
@@ -276,6 +302,7 @@ containers:
     env:
       - GITHUB_PERSONAL_ACCESS_TOKEN=${secret:github-pat}
       - LINEAR_API_TOKEN=${secret:linear-pat}
+      - JIRA_API_TOKEN=${secret:jira-api-token}
     ports:
       # DELETE the github port if not using GitHub.
       - name: github
@@ -284,6 +311,10 @@ containers:
       # DELETE the linear port if not using Linear.
       - name: linear
         port: 8080
+        protocol: HTTP/TCP
+      # DELETE the jira port if not using Jira.
+      - name: jira
+        port: 8083
         protocol: HTTP/TCP
     volume_mounts:
       - name: inline-volume
@@ -309,6 +340,17 @@ containers:
                     proxy_set_header Authorization "Bearer ${LINEAR_API_TOKEN}";
                     proxy_set_header Host mcp.linear.app;
                     proxy_pass https://mcp.linear.app/mcp;
+                    proxy_http_version 1.1;
+                    proxy_buffering off;
+                    proxy_ssl_server_name on;
+                  }
+                }
+                server {
+                  listen 8083;
+                  location /mcp {
+                    proxy_set_header Authorization "Bearer ${JIRA_API_TOKEN}";
+                    proxy_set_header Host mcp.atlassian.com;
+                    proxy_pass https://mcp.atlassian.com/v1/mcp;
                     proxy_http_version 1.1;
                     proxy_buffering off;
                     proxy_ssl_server_name on;
@@ -366,3 +408,8 @@ customizations:
   # DELETE if not using Linear.
   - mcp_server:
       endpoint: linear-mcp
+
+  # DELETE if not using Jira.
+  - mcp_server:
+      endpoint: jira-mcp
+
