@@ -10,11 +10,11 @@ For multi-provider setups, security hardening, and advanced configuration, see t
 
 ## Reference
 
-|                                                            |                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [docs/setup/README.md](docs/setup/README.md)               | Full setup guide — all providers, security, troubleshooting  |
+|                                                      |                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| [docs/setup/README.md](docs/setup/README.md)         | Full setup guide — all providers, security, troubleshooting  |
 | [config/watcher.full.yaml](config/watcher.full.yaml) | All configuration options documented                         |
-| [docs/watcher.md](docs/watcher.md)                         | Architecture: event flow, deduplication, prompt construction |
+| [docs/watcher.md](docs/watcher.md)                   | Architecture: event flow, deduplication, prompt construction |
 
 ## License
 

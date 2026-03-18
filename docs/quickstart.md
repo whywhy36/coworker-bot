@@ -87,12 +87,12 @@ Find your webhook URL: Web Console → Sandbox → Endpoints → "webhook"
 
 In each monitored repository go to **Settings → Webhooks → Add webhook**:
 
-| Field        | Value                                                                  |
-| ------------ | ---------------------------------------------------------------------- |
+| Field        | Value                                                                    |
+| ------------ | ------------------------------------------------------------------------ |
 | Payload URL  | `https://webhook--coworker-bot-<your-org>.sandboxes.site/webhook/github` |
-| Content type | `application/json` ← **required**                                      |
-| Secret       | webhook secret from Step 3                                             |
-| Events       | Issues, Pull requests, Issue comments                                  |
+| Content type | `application/json` ← **required**                                        |
+| Secret       | webhook secret from Step 3                                               |
+| Events       | Issues, Pull requests, Issue comments                                    |
 
 ---
 

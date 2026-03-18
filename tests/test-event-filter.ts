@@ -37,7 +37,10 @@ test('isBotMentionedInText - empty botUsernames returns false', () => {
 });
 
 test('isBotMentionedInText - hyphenated username matches exactly', () => {
-  assert.equal(isBotMentionedInText('@coworker-bot-bot please fix this', ['coworker-bot-bot']), true);
+  assert.equal(
+    isBotMentionedInText('@coworker-bot-bot please fix this', ['coworker-bot-bot']),
+    true
+  );
 });
 
 test('isBotMentionedInText - @coworker-bot-bot-extra does NOT match "coworker-bot-bot"', () => {

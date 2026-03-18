@@ -266,7 +266,10 @@ test('normalizeWebhookIssueEvent - empty labels has no labels field', () => {
 test('normalizeWebhookIssueEvent - no description uses empty string', () => {
   const payload = {
     ...issueCreatedPayload,
-    issue: { ...issueCreatedPayload.issue, fields: { ...issueCreatedPayload.issue.fields, description: undefined } },
+    issue: {
+      ...issueCreatedPayload.issue,
+      fields: { ...issueCreatedPayload.issue.fields, description: undefined },
+    },
   };
   const event = normalizeWebhookIssueEvent(payload as any, 'delivery-11');
   assert.equal(event.resource.description, '');
@@ -275,7 +278,10 @@ test('normalizeWebhookIssueEvent - no description uses empty string', () => {
 test('normalizeWebhookIssueEvent - project key extracted from issue key when fields.project absent', () => {
   const payload = {
     ...issueCreatedPayload,
-    issue: { ...issueCreatedPayload.issue, fields: { ...issueCreatedPayload.issue.fields, project: undefined } },
+    issue: {
+      ...issueCreatedPayload.issue,
+      fields: { ...issueCreatedPayload.issue.fields, project: undefined },
+    },
   };
   const event = normalizeWebhookIssueEvent(payload as any, 'delivery-12');
   assert.equal(event.resource.repository, 'PROJ');
@@ -284,7 +290,10 @@ test('normalizeWebhookIssueEvent - project key extracted from issue key when fie
 test('normalizeWebhookIssueEvent - status defaults to unknown when fields.status absent', () => {
   const payload = {
     ...issueCreatedPayload,
-    issue: { ...issueCreatedPayload.issue, fields: { ...issueCreatedPayload.issue.fields, status: undefined } },
+    issue: {
+      ...issueCreatedPayload.issue,
+      fields: { ...issueCreatedPayload.issue.fields, status: undefined },
+    },
   };
   const event = normalizeWebhookIssueEvent(payload as any, 'delivery-13');
   assert.equal(event.resource.state, 'unknown');
@@ -300,7 +309,10 @@ test('normalizeWebhookIssueEvent - actor is unknown when both user and reporter 
   const payload = {
     ...issueCreatedPayload,
     user: undefined,
-    issue: { ...issueCreatedPayload.issue, fields: { ...issueCreatedPayload.issue.fields, reporter: undefined } },
+    issue: {
+      ...issueCreatedPayload.issue,
+      fields: { ...issueCreatedPayload.issue.fields, reporter: undefined },
+    },
   };
   const event = normalizeWebhookIssueEvent(payload as any, 'delivery-15');
   assert.equal(event.actor.username, 'unknown');
@@ -329,7 +341,10 @@ test('normalizeWebhookCommentEvent - comment fields populated and ADF extracted'
   const event = normalizeWebhookCommentEvent(commentCreatedPayload as any, 'delivery-c3');
 
   assert.equal(event.resource.comment?.author, 'Bob Jones');
-  assert.equal(event.resource.comment?.url, 'https://example.atlassian.net/rest/api/3/issue/10042/comment/comment-99');
+  assert.equal(
+    event.resource.comment?.url,
+    'https://example.atlassian.net/rest/api/3/issue/10042/comment/comment-99'
+  );
   // ADF body with mention should contain the @mention text
   const body = event.resource.comment?.body ?? '';
   assert.ok(body.includes('@Coworker Bot'), `expected mention in body: ${body}`);
