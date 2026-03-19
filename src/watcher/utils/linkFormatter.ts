@@ -21,6 +21,8 @@ export function formatLink(text: string, url: string, provider: string): string 
   switch (provider.toLowerCase()) {
     case 'slack':
       return formatSlackLink(sanitizedText, url);
+    case 'jira':
+      return formatJiraLink(text, url);
     case 'github':
     case 'gitlab':
     case 'linear':
@@ -54,6 +56,15 @@ export function formatResourceLink(event: NormalizedEvent): string {
     return displayText;
   }
 
+  // Jira issues use "PROJECT-123" key format, not "repo#number"
+  if (provider === 'jira') {
+    const displayText = `${resource.repository}-${resource.number}`;
+    if (!resource.url || resource.url.trim() === '') {
+      return displayText;
+    }
+    return formatLink(displayText, resource.url, provider);
+  }
+
   // Standard format for GitHub/GitLab/Linear (e.g., "owner/repo#123")
   const displayText = `${resource.repository}#${resource.number}`;
 
@@ -71,6 +82,14 @@ export function formatResourceLink(event: NormalizedEvent): string {
  */
 function formatMarkdownLink(text: string, url: string): string {
   return `[${text}](${url})`;
+}
+
+/**
+ * Formats a Jira wiki-markup link [text|url]
+ * Jira uses its own markup format, not standard markdown
+ */
+function formatJiraLink(text: string, url: string): string {
+  return `[${text}|${url}]`;
 }
 
 /**

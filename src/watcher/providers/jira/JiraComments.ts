@@ -2,6 +2,36 @@ import { withExponentialRetry } from '../../utils/retry.js';
 import { logger } from '../../utils/logger.js';
 import { fetchWithTimeout } from '../../utils/fetchWithTimeout.js';
 
+/**
+ * Parse a plain-text string into ADF inline content nodes.
+ * Tokens of the form [text|url] are emitted as text nodes with a link mark;
+ * everything else is emitted as a plain text node.
+ */
+function buildAdfInlineContent(text: string): unknown[] {
+  const nodes: unknown[] = [];
+  const linkPattern = /\[([^\]]+)\|([^\]]+)\]/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push({ type: 'text', text: text.slice(lastIndex, match.index) });
+    }
+    nodes.push({
+      type: 'text',
+      text: match[1],
+      marks: [{ type: 'link', attrs: { href: match[2] } }],
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push({ type: 'text', text: text.slice(lastIndex) });
+  }
+
+  return nodes;
+}
+
 interface JiraCommentItem {
   id: string;
   author: {
@@ -68,14 +98,15 @@ export class JiraComments {
     });
 
     const executePost = async () => {
-      // Jira REST API v3 requires Atlassian Document Format (ADF) for comment bodies
+      // Jira REST API v3 requires Atlassian Document Format (ADF) for comment bodies.
+      // Parse [text|url] link tokens in the body and emit proper ADF inline link nodes.
       const adfBody = {
         version: 1,
         type: 'doc',
         content: [
           {
             type: 'paragraph',
-            content: [{ type: 'text', text: body }],
+            content: buildAdfInlineContent(body),
           },
         ],
       };
