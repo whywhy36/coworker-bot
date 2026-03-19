@@ -37,7 +37,14 @@ Choose the method that matches your Jira deployment.
 1. Sign in to Jira as the bot account
 2. Go to [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 3. Click **Create API token**
-4. Set **Label:** `coworker-bot`
+4. Set:
+   - **Label:** `coworker-bot`
+   - **App:** Jira
+   - **Scope:** Classic
+   - **Scope Actions:**
+     - `read:jira-work` — read issues, comments, and attachments
+     - `write:jira-work` — create and update issues and comments
+     - `read:jira-user` — read user and group information
 5. Click **Create** and **copy the token immediately** — it will not be shown again
 
 **Capture:**
@@ -69,10 +76,9 @@ Jira generates a webhook secret for you when you create the webhook (Step 4). Yo
 
 ## MCP Prerequisites
 
-There is no official Jira MCP server provided with this template. The Crafting Coding Agent can interact with Jira using community MCP servers or via the Jira REST API directly through shell commands in your prompt template.
+The sandbox template uses [Atlassian's hosted Remote MCP server](https://mcp.atlassian.com) (`mcp.atlassian.com/v1/mcp`). This gives the Crafting Coding Agent tools to read and write Jira issues and comments directly.
 
-To use a community Jira MCP server, add a container to your sandbox template that exposes it as an MCP endpoint, then reference it in the `mcpServers:` block. See the sandbox template documentation for examples.
-
+The `mcp-proxy` nginx container injects `Authorization: Bearer ${JIRA_API_TOKEN}` on every request to the MCP server. The token must be a valid Atlassian API token with sufficient Jira permissions.
 ---
 
 ## watcher.yaml Configuration
@@ -194,12 +200,15 @@ You can also find it in the Web Console: select the sandbox → **Endpoints** �
    - **Name:** `coworker-bot`
    - **Status:** Enabled
    - **URL:** the webhook URL above
-4. Under **Events**, check:
-   - **Issue** → `created`, `updated`
-   - **Comment** → `created`, `updated`
-5. Optionally add a **JQL filter** to limit which issues trigger the webhook (e.g., `project in (PROJ, ENG)`)
-6. Click **Create**
-7. **Copy the secret** Jira displays after creation — this is your `jira-webhook-secret`
+4. Under **Issue related events**, check:
+   - `created`
+   - `updated`
+5. Under **Comment**, check:
+   - `created`
+   - `updated`
+6. Optionally add a **JQL filter** to limit which issues trigger the webhook (e.g., `project in (PROJ, ENG)`)
+7. Click **Create**
+8. **Copy the secret** Jira displays after creation — this is your `jira-webhook-secret`
 
 Jira generates the secret and uses it to sign payloads with an HMAC-SHA256 signature in the `X-Hub-Signature` header.
 
