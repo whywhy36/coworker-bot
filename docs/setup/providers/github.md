@@ -29,11 +29,11 @@ Uses a Personal Access Token belonging to a dedicated GitHub bot user account.
 providers:
   github:
     auth:
-      tokenEnv: GITHUB_TOKEN  # env var holding the Personal Access Token
+      tokenEnv: GITHUB_TOKEN # env var holding the Personal Access Token
     options:
       # botUsername is auto-detected from the token if omitted
       webhookSecretEnv: GITHUB_WEBHOOK_SECRET
-      repositories:           # required for polling in PAT mode
+      repositories: # required for polling in PAT mode
         - owner/repo1
         - owner/repo2
 ```
@@ -121,10 +121,10 @@ The watcher auto-configures from environment variables set in the sandbox templa
 providers:
   github:
     enabled: true
-    pollingInterval: 60  # seconds between polls (default: 60)
+    pollingInterval: 60 # seconds between polls (default: 60)
     options:
       webhookSecretEnv: GITHUB_WEBHOOK_SECRET
-      botUsername: my-app[bot]  # required — installation tokens cannot auto-detect this
+      botUsername: my-app[bot] # required — installation tokens cannot auto-detect this
       # repositories: auto-detected from the installation token if not set
       initialLookbackHours: 1
       maxItemsPerPoll: 50
@@ -138,11 +138,11 @@ providers:
     enabled: true
     pollingInterval: 60
     auth:
-      tokenEnv: GITHUB_TOKEN  # env var holding the Personal Access Token
+      tokenEnv: GITHUB_TOKEN # env var holding the Personal Access Token
     options:
       webhookSecretEnv: GITHUB_WEBHOOK_SECRET
       # botUsername: auto-detected via GET /user if omitted
-      repositories:           # required in PAT mode — no installation API available
+      repositories: # required in PAT mode — no installation API available
         - owner/repo1
         - owner/repo2
       initialLookbackHours: 1
