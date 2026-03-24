@@ -273,7 +273,10 @@ export class ConfigLoader {
         result.providers[name] = envProvider;
       } else {
         const base = result.providers[name];
-        if (envProvider.enabled !== undefined) base.enabled = envProvider.enabled;
+        // Explicit `enabled: false` in the file config is a deliberate user choice —
+        // don't let a credential env var implicitly re-enable the provider.
+        if (envProvider.enabled !== undefined && base.enabled !== false)
+          base.enabled = envProvider.enabled;
         if (envProvider.pollingInterval !== undefined)
           base.pollingInterval = envProvider.pollingInterval;
         if (envProvider.auth) {

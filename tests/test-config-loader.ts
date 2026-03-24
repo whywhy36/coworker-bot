@@ -148,3 +148,47 @@ test('ConfigLoader.resolveSecret - direct value takes precedence over envVar', (
   assert.equal(ConfigLoader.resolveSecret('direct', 'SOME_ENV'), 'direct');
   delete process.env['SOME_ENV'];
 });
+
+// --- ConfigLoader.loadWithEnv() merge behaviour ---
+
+test('ConfigLoader.loadWithEnv - enabled:false in YAML is not overridden by credential env vars', () => {
+  const path = writeYaml(
+    'disabled-providers.yaml',
+    [
+      'providers:',
+      '  github:',
+      '    enabled: true',
+      '  jira:',
+      '    enabled: false',
+      '  linear:',
+      '    enabled: false',
+    ].join('\n')
+  );
+
+  process.env['JIRA_API_TOKEN'] = 'test-jira-token';
+  process.env['JIRA_BASE_URL'] = 'https://test.atlassian.net';
+  process.env['LINEAR_API_TOKEN'] = 'test-linear-token';
+  // Ensure GitHub App mode is off so GitHub doesn't need GITHUB_ORG
+  const savedOrg = process.env['GITHUB_ORG'];
+  delete process.env['GITHUB_ORG'];
+
+  try {
+    const config = ConfigLoader.loadWithEnv(path);
+    assert.equal(
+      config.providers['jira']?.enabled,
+      false,
+      'JIRA_API_TOKEN must not re-enable jira'
+    );
+    assert.equal(
+      config.providers['linear']?.enabled,
+      false,
+      'LINEAR_API_TOKEN must not re-enable linear'
+    );
+    assert.equal(config.providers['github']?.enabled, true, 'github should remain enabled');
+  } finally {
+    delete process.env['JIRA_API_TOKEN'];
+    delete process.env['JIRA_BASE_URL'];
+    delete process.env['LINEAR_API_TOKEN'];
+    if (savedOrg !== undefined) process.env['GITHUB_ORG'] = savedOrg;
+  }
+});
