@@ -8,7 +8,7 @@
 # SETUP STEPS before creating this template:
 #   1. In Web Console → Connect → Github, connect to your github app and org repos.
 #   2. Create secrets for each provider you want:  see docs/setup/README.md
-#   3. Fill in required env vars below (REPOSITORIES, TEAMS) — BOT_USERNAMEs are auto-detected
+#   3. Fill in required env vars below (GITHUB_BOT_USERNAME, REPOSITORIES, TEAMS)
 #   4. Delete the env vars, endpoints, containers, and customizations for any
 #      providers you are NOT using — see DELETE comments throughout this file
 #   5. Create template:  cs template create coworker-bot ./templates/coworker-bot-full.yaml
@@ -35,10 +35,13 @@ env:
   - GITHUB_ORG=your-github-app-installed-org
   - GITHUB_WEBHOOK_SECRET=${secret:github-webhook-secret}
 
-  # Bot name for deduplication — events where the last comment is from this name are skipped.
-  # Optional — defaults to "coworker-bot" if not set.
-  # Set to the GitHub App bot username (e.g. my-app[bot]) or any arbitrary name.
-  # - GITHUB_BOT_USERNAME=coworker-bot
+  # GitHub App bot username — REQUIRED for GitHub App mode.
+  # Used for deduplication: events where the last comment is from this user are skipped.
+  # Must match the GitHub App's bot login exactly (e.g. "my-app[bot]").
+  # Find it by looking at a comment already posted by the app in GitHub,
+  # or in your GitHub App settings page (Settings → Developer settings → GitHub Apps).
+  # Cannot be auto-detected — GitHub App installation tokens do not support GET /user.
+  - GITHUB_BOT_USERNAME=my-app[bot]
 
   # Repositories to monitor, comma-separated: owner/repo1,owner/repo2
   # Optional — auto-detected from the installation token if not set (github app returns
