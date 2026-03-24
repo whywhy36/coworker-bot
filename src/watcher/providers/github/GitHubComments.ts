@@ -89,14 +89,25 @@ export class GitHubComments {
    * @param repository - Repository in format "owner/repo"
    * @param resourceNumber - Issue or PR number
    * @param limit - Maximum number of comments to fetch
+   * @param since - Only return comments created after this date
    * @returns Array of recent comments
    */
   async listComments(
     repository: string,
     resourceNumber: number,
-    limit: number = 10
+    limit: number = 10,
+    since?: Date
   ): Promise<CommentInfo[]> {
-    const endpoint = `https://api.github.com/repos/${repository}/issues/${resourceNumber}/comments?per_page=${limit}&sort=created&direction=desc`;
+    const url = new URL(
+      `https://api.github.com/repos/${repository}/issues/${resourceNumber}/comments`
+    );
+    url.searchParams.set('per_page', String(limit));
+    url.searchParams.set('sort', 'created');
+    url.searchParams.set('direction', 'desc');
+    if (since) {
+      url.searchParams.set('since', since.toISOString());
+    }
+    const endpoint = url.toString();
 
     try {
       return await withExponentialRetry(async () => {

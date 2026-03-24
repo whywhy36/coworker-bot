@@ -165,13 +165,16 @@ export class GitHubProvider extends BaseProvider {
 
     if (hasPollingConfig) {
       const pollerConfig: {
-        token: string;
+        tokenGetter: () => string;
         repositories: string[];
         events: string[];
         initialLookbackHours?: number;
         maxItemsPerPoll?: number;
       } = {
-        token: this.token!,
+        tokenGetter: () => {
+          this.refreshTokenIfNeeded();
+          return this.token!;
+        },
         repositories,
         events: Object.keys(this.eventFilter),
       };
@@ -370,27 +373,27 @@ export class GitHubProvider extends BaseProvider {
    * @param prNumber - The pull request number
    * @returns true if recent human comments/reviews found, false if only commits/bot activity
    */
-  private async hasRecentHumanInteraction(repository: string, prNumber: number): Promise<boolean> {
+  private async hasRecentHumanInteraction(
+    repository: string,
+    prNumber: number,
+    since?: Date
+  ): Promise<boolean> {
     if (!this.comments) {
       return true; // If we can't check, assume there is interaction
     }
 
     try {
-      // Check for recent comments (last 5 comments)
-      const comments = await this.comments.listComments(repository, prNumber, 5);
+      const comments = await this.comments.listComments(repository, prNumber, 5, since);
 
-      // If there are any comments, consider it as having interaction
-      // The deduplication system will handle if the bot already commented
       if (comments.length > 0) {
-        logger.debug(`PR #${prNumber} has ${comments.length} recent comment(s)`);
+        logger.debug(`PR #${prNumber} has ${comments.length} comment(s) since last poll`);
         return true;
       }
 
-      logger.debug(`PR #${prNumber} has no recent comments`);
+      logger.debug(`PR #${prNumber} has no comments since last poll`);
       return false;
     } catch (error) {
       logger.warn(`Failed to check comments for PR #${prNumber}`, error);
-      // On error, assume there is interaction to avoid missing important events
       return true;
     }
   }
@@ -424,7 +427,8 @@ export class GitHubProvider extends BaseProvider {
       // between commit updates (skip) vs human interaction (process)
       let hasRecentComments: boolean | undefined;
       if (resourceType === 'pull_request') {
-        hasRecentComments = await this.hasRecentHumanInteraction(repository, resourceNumber);
+        const since = this.poller!.getLastPollTime(repository);
+        hasRecentComments = await this.hasRecentHumanInteraction(repository, resourceNumber, since);
       }
 
       // Normalize event first to apply shared filtering logic
