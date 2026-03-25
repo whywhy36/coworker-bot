@@ -229,9 +229,16 @@ export class SlackProvider extends BaseProvider {
     const actorInfo = await this.comments.getUserInfo(event.user);
     if (actorInfo.email)
       logger.debug(`Resolved Slack user ${event.user} email: ${actorInfo.email}`);
+    if (actorInfo.username)
+      logger.debug(`Resolved Slack user ${event.user} display name: ${actorInfo.username}`);
 
     // Normalize Slack event for template rendering
-    const normalizedEvent = normalizeWebhookEvent(payload, history, actorInfo.email);
+    const normalizedEvent = normalizeWebhookEvent(
+      payload,
+      history,
+      actorInfo.email,
+      actorInfo.username
+    );
 
     await eventHandler(normalizedEvent, reactor);
   }
@@ -283,9 +290,16 @@ export class SlackProvider extends BaseProvider {
         const actorInfo = await this.comments.getUserInfo(mention.user);
         if (actorInfo.email)
           logger.debug(`Resolved Slack user ${mention.user} email: ${actorInfo.email}`);
+        if (actorInfo.username)
+          logger.debug(`Resolved Slack user ${mention.user} display name: ${actorInfo.username}`);
 
         // Normalize polled mention for template rendering
-        const normalizedEvent = normalizePolledMention(mention, history, actorInfo.email);
+        const normalizedEvent = normalizePolledMention(
+          mention,
+          history,
+          actorInfo.email,
+          actorInfo.username
+        );
 
         await eventHandler(normalizedEvent, reactor);
       }
