@@ -14,7 +14,11 @@ import { GitHubReactor } from './GitHubReactor.js';
 import {
   normalizeWebhookEvent,
   normalizePolledEvent,
+  normalizeCheckRunEvent,
+  normalizeStatusEvent,
   type GitHubWebhookPayload,
+  type GitHubCheckRunPayload,
+  type GitHubStatusPayload,
 } from './GitHubNormalizer.js';
 import { isBotMentionedInText, isBotAssignedInList } from '../../utils/eventFilter.js';
 import { ProviderError } from '../../utils/errors.js';
@@ -31,6 +35,7 @@ export class GitHubProvider extends BaseProvider {
   private static readonly TOKEN_TTL_MS = 55 * 60 * 1000; // 55 minutes, matching nginx cache TTL
   private botUsernames: string[] = [];
   private triggerLabels: string[] = [];
+  private watchChecks: boolean = false;
 
   private static readonly DEFAULT_WEBHOOK_EVENTS: Record<string, GitHubEventConfig> = {
     issues: { actions: ['all'], skipActions: [] },
@@ -50,6 +55,8 @@ export class GitHubProvider extends BaseProvider {
       ],
     },
     issue_comment: { actions: ['all'], skipActions: [] },
+    check_run: { actions: ['completed'], skipActions: [] },
+    status: { actions: ['all'], skipActions: [] },
   };
 
   private eventFilter: Record<string, GitHubEventConfig> = {
@@ -98,6 +105,7 @@ export class GitHubProvider extends BaseProvider {
           maxItemsPerPoll?: number;
           botUsername?: string | string[];
           triggerLabels?: string | string[];
+          watchChecks?: boolean;
           eventFilter?: Record<string, { actions?: string[]; skipActions?: string[] }>;
         }
       | undefined;
@@ -135,6 +143,11 @@ export class GitHubProvider extends BaseProvider {
       const raw = options.triggerLabels;
       this.triggerLabels = Array.isArray(raw) ? raw : [raw];
       logger.info(`GitHub trigger labels: ${this.triggerLabels.join(', ')}`);
+    }
+
+    if (options?.watchChecks) {
+      this.watchChecks = true;
+      logger.info('GitHub check failure watching enabled');
     }
 
     // Resolve webhook secret if provided
@@ -247,6 +260,22 @@ export class GitHubProvider extends BaseProvider {
       return;
     }
 
+    // check_run and status events have different payload shapes — handle separately
+    if (event === 'check_run') {
+      await this.handleCheckRunWebhook(
+        body as GitHubCheckRunPayload,
+        deliveryId,
+        eventConfig,
+        eventHandler
+      );
+      return;
+    }
+
+    if (event === 'status') {
+      await this.handleStatusWebhook(body as GitHubStatusPayload, deliveryId, eventHandler);
+      return;
+    }
+
     // Early filtering: Check if this is a supported event type
     let resourceType: string;
     let resourceNumber: number;
@@ -306,6 +335,172 @@ export class GitHubProvider extends BaseProvider {
     await eventHandler(normalizedEvent, reactor);
   }
 
+  private async handleCheckRunWebhook(
+    payload: GitHubCheckRunPayload,
+    deliveryId: string,
+    eventConfig: GitHubEventConfig,
+    eventHandler: EventHandler
+  ): Promise<void> {
+    const checkRun = payload.check_run;
+    const repository = payload.repository.full_name;
+
+    // Only process completed events with a failure-like conclusion
+    const failureConclusions = ['failure', 'timed_out', 'cancelled', 'action_required'];
+    if (
+      payload.action !== 'completed' ||
+      !checkRun.conclusion ||
+      !failureConclusions.includes(checkRun.conclusion)
+    ) {
+      logger.debug(
+        `Skipping check_run "${checkRun.name}" - action=${payload.action} conclusion=${checkRun.conclusion}`
+      );
+      return;
+    }
+
+    // Only process check runs associated with a PR
+    if (!checkRun.pull_requests || checkRun.pull_requests.length === 0) {
+      logger.debug(`Skipping check_run "${checkRun.name}" - no associated pull requests`);
+      return;
+    }
+
+    for (const prRef of checkRun.pull_requests) {
+      const prNumber = prRef.number;
+
+      // Fetch full PR details to populate resource fields and labels
+      const prDetails = await this.comments!.getPullRequest(repository, prNumber);
+      if (!prDetails) {
+        logger.warn(`check_run: could not fetch PR #${prNumber} in ${repository}, skipping`);
+        continue;
+      }
+
+      const prArg: {
+        number: number;
+        title: string;
+        description: string;
+        url: string;
+        state: string;
+        author?: string;
+        labels?: string[];
+        branch: string;
+        mergeTo: string;
+      } = {
+        number: prNumber,
+        title: prDetails.title,
+        description: prDetails.description,
+        url: prDetails.url,
+        state: prDetails.state,
+        branch: prRef.head.ref,
+        mergeTo: prRef.base.ref,
+      };
+      if (prDetails.author) prArg.author = prDetails.author;
+      if (prDetails.labels) prArg.labels = prDetails.labels;
+
+      const normalizedEvent = normalizeCheckRunEvent(payload, prArg, deliveryId);
+
+      if (
+        !this.shouldProcessEvent(
+          normalizedEvent,
+          undefined,
+          eventConfig.actions,
+          eventConfig.skipActions
+        )
+      ) {
+        continue;
+      }
+
+      const reactor = new GitHubReactor(
+        this.comments!,
+        repository,
+        'pull_request',
+        prNumber,
+        this.botUsernames
+      );
+
+      await eventHandler(normalizedEvent, reactor);
+    }
+  }
+
+  private async handleStatusWebhook(
+    payload: GitHubStatusPayload,
+    deliveryId: string,
+    eventHandler: EventHandler
+  ): Promise<void> {
+    const repository = payload.repository.full_name;
+
+    // Only process failure/error states
+    if (payload.state !== 'failure' && payload.state !== 'error') {
+      logger.debug(`Skipping status event for "${payload.context}" - state=${payload.state}`);
+      return;
+    }
+
+    // Find open PRs whose HEAD is this commit
+    const openPRs = await this.comments!.getPullRequestsForCommit(repository, payload.sha);
+    if (openPRs.length === 0) {
+      logger.debug(
+        `Skipping status event for "${payload.context}" on ${payload.sha} - no open PRs`
+      );
+      return;
+    }
+
+    // Use a fixed eventFilter config — status events have no action sub-type
+    const eventConfig = this.eventFilter['status'] ?? { actions: ['all'], skipActions: [] };
+
+    for (const prRef of openPRs) {
+      const prNumber = prRef.number;
+
+      const prDetails = await this.comments!.getPullRequest(repository, prNumber);
+      if (!prDetails) {
+        logger.warn(`status: could not fetch PR #${prNumber} in ${repository}, skipping`);
+        continue;
+      }
+
+      const prArg: {
+        number: number;
+        title: string;
+        description: string;
+        url: string;
+        state: string;
+        author?: string;
+        labels?: string[];
+        branch: string;
+        mergeTo: string;
+      } = {
+        number: prNumber,
+        title: prDetails.title,
+        description: prDetails.description,
+        url: prDetails.url,
+        state: prDetails.state,
+        branch: prRef.head.ref,
+        mergeTo: prRef.base.ref,
+      };
+      if (prDetails.author) prArg.author = prDetails.author;
+      if (prDetails.labels) prArg.labels = prDetails.labels;
+
+      const normalizedEvent = normalizeStatusEvent(payload, prArg, deliveryId);
+
+      if (
+        !this.shouldProcessEvent(
+          normalizedEvent,
+          undefined,
+          eventConfig.actions,
+          eventConfig.skipActions
+        )
+      ) {
+        continue;
+      }
+
+      const reactor = new GitHubReactor(
+        this.comments!,
+        repository,
+        'pull_request',
+        prNumber,
+        this.botUsernames
+      );
+
+      await eventHandler(normalizedEvent, reactor);
+    }
+  }
+
   private shouldProcessEvent(
     event: NormalizedEvent,
     hasRecentComments?: boolean,
@@ -347,7 +542,20 @@ export class GitHubProvider extends BaseProvider {
       lowerTriggerLabels.length > 0 &&
       resource.labels?.some((l) => lowerTriggerLabels.includes(l.toLowerCase()));
 
-    if (hasTriggeredByLabel) {
+    // Check failure: admitted if watchChecks=true or a trigger label matches
+    const isCheckFailure = action === 'check_failed';
+    if (isCheckFailure) {
+      if (this.watchChecks || hasTriggeredByLabel) {
+        logger.debug(
+          `${type} #${resource.number} check failure admitted (watchChecks=${this.watchChecks}, labelMatch=${hasTriggeredByLabel})`
+        );
+      } else {
+        logger.debug(
+          `Skipping ${type} #${resource.number} check failure - watchChecks not enabled and no trigger label`
+        );
+        return false;
+      }
+    } else if (hasTriggeredByLabel) {
       logger.debug(
         `${type} #${resource.number} matches trigger label - bypassing assignment check`
       );
