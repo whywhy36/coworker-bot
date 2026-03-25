@@ -283,6 +283,7 @@ workspaces:
         - path: ~/coworker-bot/config/watcher.yaml
           mode: "0644"
           overwrite: true
+          # If using linear provider, replace "prompts" config by "jira: ./config/event-prompt-jira.hbs".
           content: |
             server:
               host: 0.0.0.0
