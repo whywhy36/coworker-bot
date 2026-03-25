@@ -25,7 +25,7 @@
                             empty string for webhook events
     {{resource.state}}      Always "open"
     {{resource.repository}} Slack channel ID (e.g. "C01ABC123")
-    {{resource.author}}     Slack user ID of whoever triggered this event (e.g. "U01ABC123") — not a username.
+    {{resource.author}}     Display name of whoever triggered this event (e.g. "jane.doe").
                             This may not be the person who made the actual request — read the full
                             conversation in {{resource.description}} to determine the true requester.
     {{resource.labels}}     Not populated for Slack
@@ -33,12 +33,13 @@
   resource.comment.* (always present for Slack events — contains the triggering message):
     {{resource.comment.body}}   The triggering mention text only (not the full thread history).
                                 Use {{resource.description}} when you need the full conversation.
-    {{resource.comment.author}} Slack user ID of the sender (e.g. "U01ABC123")
+    {{resource.comment.author}} Display name of the sender (e.g. "jane.doe")
     {{resource.comment.url}}    Permalink — populated for polled mentions only; absent for webhooks
 
   actor.*:
-    {{actor.username}}      Slack user ID of whoever sent the message (e.g. "U01ABC123")
-    {{actor.id}}            Same as actor.username for Slack
+    {{actor.username}}      Display name of whoever sent the message (e.g. "jane.doe")
+    {{actor.id}}            Raw Slack user ID (e.g. "U01ABC123") — use <@{{actor.id}}> to mention
+                            the user in Slack replies (this triggers notifications and renders as @DisplayName)
     {{actor.email}}         Email address of the actor — pre-fetched from Slack users.info API.
                             Use this directly for co-author lines instead of querying the MCP.
                             May be absent if the users:read.email scope is not granted.
@@ -76,6 +77,7 @@ Channel: {{resource.repository}}
 {{/if}}
 {{#if resource.author}}
 Author: @{{resource.author}}{{#if actor.email}} ({{actor.email}}){{/if}}
+Slack Mention: <@{{actor.id}}> (use this format in replies — plain `@name` does not notify)
 {{/if}}
 
 {{#if resource.title}}
@@ -108,7 +110,7 @@ Author: @{{resource.author}}{{#if actor.email}} ({{actor.email}}){{/if}}
    - Only start a new thread if the response is substantial
 
 2. **Mentions**:
-   - Tag relevant people using @username if their input is needed
+   - Tag relevant people using `<@USER_ID>` format (e.g. `<@{{actor.id}}>`) — this triggers notifications and renders as @DisplayName in Slack. Plain `@name` text does NOT notify anyone.
    - Don't over-mention; only tag when truly necessary
 
 3. **Formatting**:
