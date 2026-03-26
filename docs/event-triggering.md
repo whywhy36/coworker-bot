@@ -125,13 +125,6 @@ Polls issues (updated since last poll), optionally filtered to configured projec
 - Bot involvement is implicit — `app_mention` means the bot was @mentioned
 - No assignment check, no state/closed check (messages have no concept of closed)
 
-### Polling
-
-Slack polling is **opt-in** (unlike other providers) and must be enabled explicitly via `pollingEnabled: true` in config. Requires the `search:read` OAuth scope.
-
-- Searches for missed @mentions (messages where the bot was mentioned but the webhook was not received)
-- Useful as a fallback when webhooks are temporarily unavailable (e.g., sandbox was suspended)
-
 ### Known gaps / design concerns
 
 - **No guard against bot-to-bot mentions**: if another bot @mentions this bot, it passes all filters; deduplication is the only protection if it happens within the same thread
