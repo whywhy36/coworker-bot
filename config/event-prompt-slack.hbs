@@ -49,6 +49,9 @@
     {{metadata.channel}}    Slack channel ID (same as resource.repository)
     {{metadata.threadTs}}   Parent thread timestamp if this message is a reply; absent if top-level
     {{metadata.polled}}     true if received via polling; absent for webhooks
+    {{metadata.files}}      Array of file attachments on the triggering message (absent if none).
+                            Each entry: { id, name, title?, mimetype?, filetype?, url_private?, permalink? }
+                            To fetch: use Slack MCP tools if available, otherwise web_fetch with Authorization: Bearer <SLACK_BOT_TOKEN>.
 
   ─── Built-in Helpers ────────────────────────────────────────────────────────────
 
@@ -90,6 +93,16 @@ Slack Mention: <@{{actor.id}}> (use this format in replies — plain `@name` doe
 ## Message Content
 
 {{resource.description}}
+{{/if}}
+
+{{#if metadata.files}}
+## Attachments
+
+The triggering message includes the following file(s). To fetch their content, check available Slack MCP tools first; if none support file fetching, fall back to `web_fetch` with `Authorization: Bearer <SLACK_BOT_TOKEN>` on the `url_private` URL:
+
+{{#each metadata.files}}
+- **{{this.name}}**{{#if this.filetype}} [{{this.filetype}}]{{else if this.mimetype}} [{{this.mimetype}}]{{/if}}{{#if this.url_private}} — `{{this.url_private}}`{{/if}}{{#if this.permalink}} ({{this.permalink}}){{/if}}
+{{/each}}
 {{/if}}
 
 ## Instructions
@@ -168,6 +181,15 @@ Slack Mention: <@{{actor.id}}> (use this format in replies — plain `@name` doe
    - **Error messages**: Help debug or point to relevant documentation
    - **Links to PRs/issues**: Fetch and summarize their status
    - **Requests for summaries**: Provide clear, organized summaries of discussions or changes
+
+9. **File Attachments**:
+   {{#if metadata.files}}
+   - This message has file attachment(s): {{#each metadata.files}}**{{this.name}}**{{#unless @last}}, {{/unless}}{{/each}}
+   - Use MCP tools to fetch the file content when needed to fulfill the request — check available Slack MCP tools first; if none support file fetching, fall back to `web_fetch` with `Authorization: Bearer <SLACK_BOT_TOKEN>` on the `url_private` URL
+   - In your Slack reply summary, do NOT reproduce the file content — just refer to it by filename (e.g. "based on `requirements.txt`")
+   {{else}}
+   - No file attachments in this message
+   {{/if}}
 
 ## Important Notes
 

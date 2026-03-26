@@ -1,11 +1,13 @@
 import { withExponentialRetry } from '../../utils/retry.js';
 import { logger } from '../../utils/logger.js';
 import { fetchWithTimeout } from '../../utils/fetchWithTimeout.js';
+import type { SlackFile } from './SlackNormalizer.js';
 
 interface SlackMessage {
   ts: string;
   text: string;
   user: string;
+  files?: SlackFile[];
 }
 
 /**
@@ -294,6 +296,20 @@ export class SlackComments {
       return '';
     }
 
-    return messages.map((m) => `[${m.ts}] <@${m.user}>: ${m.text}`).join('\n\n');
+    return messages
+      .map((m) => {
+        let line = `[${m.ts}] <@${m.user}>: ${m.text}`;
+        if (m.files?.length) {
+          const fileList = m.files
+            .map(
+              (f) =>
+                `${f.name} (${f.filetype || f.mimetype || 'file'}): ${f.url_private || f.permalink || ''}`
+            )
+            .join(', ');
+          line += `\n[Attachments: ${fileList}]`;
+        }
+        return line;
+      })
+      .join('\n\n');
   }
 }
