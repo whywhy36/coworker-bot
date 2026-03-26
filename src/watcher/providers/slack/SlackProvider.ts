@@ -215,13 +215,15 @@ export class SlackProvider extends BaseProvider {
     // - If event.thread_ts is undefined: use event.ts to start/continue a thread
     const threadTs = event.thread_ts || event.ts;
 
-    // Fetch thread history for context
+    // Fetch thread history and channel name for context
     let history = '';
     try {
       history = await this.comments.getConversationHistory(event.channel, threadTs);
     } catch (error) {
       logger.warn('Failed to fetch Slack thread history', error);
     }
+
+    const channelName = await this.comments.getChannelName(event.channel);
 
     const reactor = new SlackReactor(this.comments, event.channel, threadTs, this.botUsernames);
 
@@ -237,7 +239,8 @@ export class SlackProvider extends BaseProvider {
       payload,
       history,
       actorInfo.email,
-      actorInfo.username
+      actorInfo.username,
+      channelName
     );
 
     await eventHandler(normalizedEvent, reactor);
