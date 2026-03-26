@@ -18,6 +18,8 @@ Apply these flags to every secret:
 | Secret                  | Provider |
 | ----------------------- | -------- |
 | `github-webhook-secret` | GitHub   |
+| `jira-api-token`        | Jira     |
+| `jira-webhook-secret`   | Jira     |
 | `linear-pat`            | Linear   |
 | `linear-webhook-secret` | Linear   |
 | `slack-bot-token`       | Slack    |
@@ -34,6 +36,7 @@ Every provider should be configured with a webhook secret so the watcher can ver
 | Provider | Secret env var          | How the secret is used                                        |
 | -------- | ----------------------- | ------------------------------------------------------------- |
 | GitHub   | `GITHUB_WEBHOOK_SECRET` | HMAC-SHA256 signature in `X-Hub-Signature-256` header         |
+| Jira     | `JIRA_WEBHOOK_SECRET`   | HMAC-SHA256 signature in `X-Hub-Signature` header             |
 | Linear   | `LINEAR_WEBHOOK_SECRET` | HMAC-SHA256 signature in `Linear-Signature` header            |
 | Slack    | `SLACK_SIGNING_SECRET`  | HMAC-SHA256 of timestamp + body in `X-Slack-Signature` header |
 
@@ -59,11 +62,12 @@ Each provider should have a dedicated service account used exclusively by cowork
 - A dedicated account makes audit logs clear: every action taken by the agent is attributed to a clearly named bot account.
 - Revoking access is scoped — you can revoke the bot account's token without affecting your personal access.
 
-| Provider | Guidance                                                                                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub   | Use a GitHub App installation — the app acts as its own bot user (e.g. `my-app[bot]`). No separate GitHub account needs to be created. |
-| Linear   | Linear API keys are workspace-wide. Use a dedicated service account where possible.                                                    |
-| Slack    | The Slack app acts as its own bot user — no separate account needed.                                                                   |
+| Provider | Guidance                                                                                                                                                                                                         |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub   | Use a GitHub App installation — the app acts as its own bot user (e.g. `my-app[bot]`). No separate GitHub account needs to be created.                                                                           |
+| Jira     | Create a dedicated Atlassian account for the bot. Do not use a personal account — the watcher uses the bot account's display name for deduplication, so using your own account would suppress your own activity. |
+| Linear   | Linear API keys are workspace-wide. Use a dedicated service account where possible.                                                                                                                              |
+| Slack    | The Slack app acts as its own bot user — no separate account needed.                                                                                                                                             |
 
 ---
 
@@ -76,6 +80,8 @@ Grant each token only the permissions it actually needs.
 - The app installation token is scoped to the org and repos the app was granted access to
 - Permissions are defined on the GitHub App itself — grant only the repository permissions the agent needs (Contents, Issues, Pull requests read/write)
 - No personal access token is required
+
+**Jira** — For Jira Cloud, generate an API token scoped to the minimum required actions: `read:jira-work`, `write:jira-work`, `read:jira-user`. For Jira Server/DC, use a Personal Access Token from the dedicated bot account. Grant the bot account only **Developer** (or equivalent) permissions on the monitored projects — it needs to read issues, post comments, and be assigned, but does not need admin access.
 
 **Linear** — API keys have full workspace access. Use a dedicated service account and treat the key as a high-value credential.
 
