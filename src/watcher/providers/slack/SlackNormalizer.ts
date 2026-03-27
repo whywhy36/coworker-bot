@@ -1,5 +1,15 @@
 import type { NormalizedEvent } from '../../types/index.js';
 
+export interface SlackFile {
+  id: string;
+  name: string;
+  title?: string;
+  mimetype?: string;
+  filetype?: string;
+  url_private?: string;
+  permalink?: string;
+}
+
 export interface SlackEventPayload {
   type: string;
   event?: {
@@ -10,6 +20,7 @@ export interface SlackEventPayload {
     ts: string;
     thread_ts?: string;
     channel_type?: string;
+    files?: SlackFile[];
   };
   team_id?: string;
   event_id?: string;
@@ -59,6 +70,7 @@ export function normalizeWebhookEvent(
       channel: channelId,
       threadTs: event.thread_ts,
       channelType: event.channel_type,
+      ...(event.files?.length ? { files: event.files } : {}),
     },
     raw: payload,
   };
@@ -72,6 +84,7 @@ export function normalizePolledMention(
     text: string;
     user: string;
     permalink?: string;
+    files?: SlackFile[];
   },
   history?: string,
   actorEmail?: string,
@@ -118,6 +131,7 @@ export function normalizePolledMention(
       channel: mention.channel,
       threadTs: mention.threadTs,
       polled: true,
+      ...(mention.files?.length ? { files: mention.files } : {}),
     },
     raw: mention,
   };

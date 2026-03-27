@@ -93,6 +93,30 @@ Polls issues (updated since last poll), optionally filtered to configured teams.
 
 ---
 
+## Jira
+
+### Webhook
+
+Accepted event types: `jira:issue_created`, `jira:issue_updated`, `comment_created`, `comment_updated`.
+
+| Event type                        | Bot involvement required                                           | Also skip if                                              |
+| --------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| `jira:issue_created` / `_updated` | Bot **assigned** to issue (matched by display name)                | Issue status is in the skip list                          |
+| `comment_created` / `_updated`    | Bot **@mentioned** in comment (by display name or Jira account ID) | Issue status is in the skip list; comment authored by bot |
+
+Default skip statuses: `done`, `closed`, `resolved`, `cancelled`, `won't fix` (overridable via `skipStatuses` in config).
+
+Mention detection checks both plain-text display name (`@Coworker Bot`) and ADF account-ID mentions (`[~accountid:...]`) so it works for both wiki markup and rich-text comments.
+
+### Polling
+
+Polls issues (updated since last poll), optionally filtered to configured projects.
+
+- Bot must be assigned (matched by display name); skip if status is in the skip list
+- **Comments are not polled** — a missed comment webhook cannot be recovered by polling
+
+---
+
 ## Slack
 
 ### Webhook

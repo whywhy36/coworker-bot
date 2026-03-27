@@ -31,6 +31,7 @@ Navigate to **OAuth & Permissions** and add these Bot Token Scopes:
 | `groups:history`    | Read private channel thread history                          |
 | `im:history`        | Read direct message thread history                           |
 | `search:read`       | Search for missed mentions (polling mode)                    |
+| `files:read`        | Access file metadata and private URLs for attachments        |
 
 ---
 
@@ -145,6 +146,22 @@ When the bot is mentioned in a thread:
 - The bot replies in the same thread automatically
 - The full thread conversation history is fetched and included in `resource.description` (formatted as `[timestamp] <@userId>: text` per message)
 - Use `resource.description` in Handlebars templates when you need full thread context; `resource.comment.body` contains only the triggering mention text
+
+### Attachments
+
+When messages in the thread include file attachments, they are appended to the relevant message in `resource.description`:
+
+```
+[1234567890.123456] <@U01ABC123>: Here's the file
+[Attachments: report.pdf (pdf): https://files.slack.com/files-pri/...]
+```
+
+Each attachment includes its filename, type, and a private download URL (`url_private`). Accessing these URLs requires:
+
+- The `files:read` bot scope (see Step 2)
+- An authenticated request using the bot token — the URLs are not publicly accessible
+
+Attachments are surfaced for both webhook-triggered events and polled mentions.
 
 ---
 

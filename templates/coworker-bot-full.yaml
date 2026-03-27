@@ -368,6 +368,7 @@ containers:
     env:
       - SLACK_MCP_PORT=8081
       - SLACK_MCP_HOST=0.0.0.0
+      - SLACK_MCP_ENABLED_TOOLS=attachment_get_data
     ports:
       - name: slack
         port: 8081
