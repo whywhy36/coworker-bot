@@ -4,7 +4,7 @@ import {
   normalizeWebhookEvent,
   normalizePolledEvent,
   normalizeCommentEvent,
-} from '../src/watcher/providers/linear/LinearNormalizer.js';
+} from '../../../src/watcher/providers/linear/LinearNormalizer.js';
 
 // Fixtures — structures match real Linear webhook payloads as documented at
 // https://linear.app/developers/webhooks#webhook-payload
@@ -18,8 +18,8 @@ import {
 // connection structure, matching the GraphQL API shape.
 //
 // actor (outer) is the user who triggered the event (may differ from data.creator
-// for update events). The normalizer currently derives actor from data.creator —
-// a future improvement could use the outer actor for update events.
+// for update events). The normalizer uses data.creator as the actor — the issue
+// owner — so that EMAIL always resolves to the person who owns the work.
 
 const issueCreatedPayload = {
   action: 'create',
@@ -106,6 +106,7 @@ test('normalizeWebhookEvent - issue create event', () => {
   // url is used by {{resourceLink}} in the prompt template
   assert.equal(event.resource.url, 'https://linear.app/org/issue/ENG-42');
   assert.equal(event.resource.author, 'Alice');
+  // actor is the issue creator (data.creator), not the webhook trigger actor
   assert.equal(event.actor.username, 'Alice');
   assert.equal(event.actor.id, 'issue-abc');
   assert.equal(event.id, 'linear:ENG:create:issue-abc:webhook-id-1');
@@ -355,4 +356,66 @@ test('normalizeCommentEvent - empty labels on parent issue has no labels field',
   };
   const event = normalizeCommentEvent(payload as any, 'webhook-id-c10');
   assert.equal(event.resource.labels, undefined);
+});
+
+// --- actor.email mapping ---
+
+test('normalizeWebhookEvent - actor.email from payload.actor.email', () => {
+  const event = normalizeWebhookEvent(issueCreatedPayload as any, 'webhook-email-1');
+  assert.equal(event.actor.email, 'alice@example.com');
+});
+
+test('normalizeWebhookEvent - actor.email absent when payload.actor is absent', () => {
+  const payload = { ...issueCreatedPayload, actor: undefined };
+  const event = normalizeWebhookEvent(payload as any, 'webhook-email-2');
+  assert.equal(event.actor.email, undefined);
+});
+
+test('normalizeCommentEvent - actor.email from payload.actor.email', () => {
+  const event = normalizeCommentEvent(commentPayload, 'webhook-email-3');
+  assert.equal(event.actor.email, 'bob@example.com');
+});
+
+test('normalizeCommentEvent - actor.email absent when payload.actor is absent', () => {
+  const payload = { ...commentPayload, actor: undefined };
+  const event = normalizeCommentEvent(payload as any, 'webhook-email-4');
+  assert.equal(event.actor.email, undefined);
+});
+
+test('normalizePolledEvent - actor.email from creator.email', () => {
+  const item = {
+    team: 'ENG',
+    data: {
+      id: 'issue-abc',
+      identifier: 'ENG-42',
+      number: 42,
+      title: 'Fix auth bug',
+      url: 'https://linear.app/org/issue/ENG-42',
+      state: { name: 'In Progress', type: 'started', color: '#f2c94c' },
+      team: { key: 'ENG', name: 'Engineering' },
+      creator: { id: 'user-alice-id', name: 'Alice', email: 'alice@example.com' },
+      labels: { nodes: [] },
+    },
+  };
+  const event = normalizePolledEvent(item);
+  assert.equal(event.actor.email, 'alice@example.com');
+});
+
+test('normalizePolledEvent - actor.email absent when creator has no email', () => {
+  const item = {
+    team: 'ENG',
+    data: {
+      id: 'issue-abc',
+      identifier: 'ENG-42',
+      number: 42,
+      title: 'Fix auth bug',
+      url: 'https://linear.app/org/issue/ENG-42',
+      state: { name: 'In Progress', type: 'started', color: '#f2c94c' },
+      team: { key: 'ENG', name: 'Engineering' },
+      creator: { id: 'user-alice-id', name: 'Alice' },
+      labels: { nodes: [] },
+    },
+  };
+  const event = normalizePolledEvent(item);
+  assert.equal(event.actor.email, undefined);
 });

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LinearReactor } from '../src/watcher/providers/linear/LinearReactor.js';
-import type { LinearComments } from '../src/watcher/providers/linear/LinearComments.js';
+import { LinearReactor } from '../../../src/watcher/providers/linear/LinearReactor.js';
+import type { LinearComments } from '../../../src/watcher/providers/linear/LinearComments.js';
 
 interface MockLinearComment {
   id: string;
@@ -19,7 +19,7 @@ function makeReactor(
   } = {}
 ): LinearReactor {
   const mockComments: Partial<InstanceType<typeof LinearComments>> = {
-    getComments: async () => opts.comments ?? [],
+    getComments: async () => ({ description: null, comments: opts.comments ?? [] }),
     postComment: async () => {
       if (opts.postShouldThrow) throw opts.postShouldThrow;
       return opts.postShouldReturn ?? 'comment-id-123';

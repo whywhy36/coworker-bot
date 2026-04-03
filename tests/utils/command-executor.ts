@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CommandExecutor } from '../src/watcher/utils/CommandExecutor.js';
+import { CommandExecutor } from '../../src/watcher/utils/CommandExecutor.js';
 import type {
   Reactor,
   NormalizedEvent,
   CommandExecutorConfig,
-} from '../src/watcher/types/index.js';
+} from '../../src/watcher/types/index.js';
 
 // --- Fixtures ---
 
@@ -232,6 +232,29 @@ test('CommandExecutor execute() - sets PROMPT env var when useStdin=false', asyn
   const { reactor, comments } = makeReactor();
   await executor.execute('evt-1', 'display', makeEvent({ provider: 'github' }), reactor);
   assert.equal(comments[1]!.trim(), 'github');
+});
+
+test('CommandExecutor execute() - sets EMAIL env var when actor.email is present', async () => {
+  const executor = new CommandExecutor(baseConfig({ command: 'echo "$EMAIL"', followUp: true }));
+  const { reactor, comments } = makeReactor();
+  const event = makeEvent({ actor: { username: 'user1', id: 1, email: 'user@example.com' } });
+  await executor.execute('evt-1', 'display', event, reactor);
+  assert.equal(comments[1]!.trim(), 'user@example.com');
+});
+
+test('CommandExecutor execute() - does not set EMAIL env var when actor.email is absent', async () => {
+  const saved = process.env['EMAIL'];
+  delete process.env['EMAIL'];
+  try {
+    const executor = new CommandExecutor(
+      baseConfig({ command: 'printenv EMAIL || echo "not-set"', followUp: true })
+    );
+    const { reactor, comments } = makeReactor();
+    await executor.execute('evt-1', 'display', makeEvent(), reactor);
+    assert.equal(comments[1]!.trim(), 'not-set');
+  } finally {
+    if (saved !== undefined) process.env['EMAIL'] = saved;
+  }
 });
 
 test('CommandExecutor execute() - does not set PROMPT env var when useStdin=true', async () => {

@@ -80,8 +80,8 @@ export class LinearProvider extends BaseProvider {
     } else if (this.comments) {
       const detected = await this.comments.getAuthenticatedUser();
       if (detected) {
-        this.botUsernames = [detected];
-        logger.info(`Linear bot username auto-detected from API key: ${detected}`);
+        this.botUsernames = detected;
+        logger.info(`Linear bot usernames auto-detected from API key: ${detected.join(', ')}`);
       } else {
         logger.warn(
           'Linear: botUsername not configured and auto-detection failed - deduplication will not work'
@@ -202,8 +202,11 @@ export class LinearProvider extends BaseProvider {
         return;
       }
       const issueId = commentPayload.data.issue.id;
-      const reactor = new LinearReactor(this.comments, issueId, this.botUsernames);
       const normalizedEvent = normalizeCommentEvent(commentPayload, webhookId);
+      const ctx = await this.fetchIssueContext(issueId);
+      if (ctx.description !== null) normalizedEvent.resource.description = ctx.description;
+      normalizedEvent.resource.comments = ctx.comments;
+      const reactor = new LinearReactor(this.comments, issueId, this.botUsernames, ctx.comments);
       await eventHandler(normalizedEvent, reactor);
       return;
     }
@@ -223,19 +226,48 @@ export class LinearProvider extends BaseProvider {
       logger.error(`Skipping Linear issue ${payload.data.identifier} - botUsername not configured`);
       return;
     }
-    if (
-      !isBotAssignedInList(
-        normalizedEvent.resource.assignees,
-        this.botUsernames,
-        (a) => (a as any).name
-      )
-    ) {
-      logger.debug(`Skipping Linear issue ${payload.data.identifier} - bot not assigned`);
+    const botAssigned = isBotAssignedInList(
+      normalizedEvent.resource.assignees,
+      this.botUsernames,
+      (a) => (a as any).name
+    );
+    // Description mention only counts for newly created issues (no comments yet)
+    const botMentioned =
+      payload.action === 'create' &&
+      isBotMentionedInText(normalizedEvent.resource.description, this.botUsernames);
+    if (!botAssigned && !botMentioned) {
+      logger.debug(
+        `Skipping Linear issue ${payload.data.identifier} - bot not assigned or mentioned`
+      );
       return;
     }
 
-    const reactor = new LinearReactor(this.comments, issueId, this.botUsernames);
+    const ctx = await this.fetchIssueContext(issueId);
+    if (ctx.description !== null) normalizedEvent.resource.description = ctx.description;
+    normalizedEvent.resource.comments = ctx.comments;
+    const reactor = new LinearReactor(this.comments, issueId, this.botUsernames, ctx.comments);
     await eventHandler(normalizedEvent, reactor);
+  }
+
+  private async fetchIssueContext(issueId: string): Promise<{
+    description: string | null;
+    comments: Array<{ body: string; author: string; createdAt?: string }>;
+  }> {
+    if (!this.comments) return { description: null, comments: [] };
+    try {
+      const { description, comments } = await this.comments.getComments(issueId);
+      return {
+        description,
+        comments: comments.map((c) => ({
+          body: c.body,
+          author: c.user.name,
+          createdAt: c.createdAt,
+        })),
+      };
+    } catch (error) {
+      logger.warn(`Failed to fetch issue context for Linear issue ${issueId}`, error);
+      return { description: null, comments: [] };
+    }
   }
 
   private shouldSkipByState(stateName: string, states: string[], skipStates: string[]): boolean {
@@ -314,7 +346,10 @@ export class LinearProvider extends BaseProvider {
 
       logger.debug(`Creating reactor for issue ${item.data.identifier}`);
 
-      const reactor = new LinearReactor(this.comments, issueId, this.botUsernames);
+      const ctx = await this.fetchIssueContext(issueId);
+      if (ctx.description !== null) normalizedEvent.resource.description = ctx.description;
+      normalizedEvent.resource.comments = ctx.comments;
+      const reactor = new LinearReactor(this.comments, issueId, this.botUsernames, ctx.comments);
 
       logger.debug(`Calling event handler for issue ${item.data.identifier}`);
       await eventHandler(normalizedEvent, reactor);

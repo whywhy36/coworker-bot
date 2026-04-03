@@ -14,16 +14,22 @@ interface LinearComment {
   createdAt: string;
 }
 
+export interface LinearIssueWithComments {
+  description: string | null;
+  comments: LinearComment[];
+}
+
 export class LinearComments {
   private readonly apiUrl = 'https://api.linear.app/graphql';
 
   constructor(private readonly apiKey: string) {}
 
-  async getComments(issueId: string): Promise<LinearComment[]> {
+  async getComments(issueId: string): Promise<LinearIssueWithComments> {
     const query = `
       query GetIssueComments($issueId: String!) {
         issue(id: $issueId) {
-          comments {
+          description
+          comments(orderBy: { field: createdAt, direction: ascending }) {
             nodes {
               id
               body
@@ -81,14 +87,15 @@ export class LinearComments {
       throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
     }
 
-    const comments = data.data?.issue?.comments?.nodes || [];
+    const issue = data.data?.issue;
+    const comments = issue?.comments?.nodes || [];
     logger.debug(`Fetched ${comments.length} comments from Linear issue ${issueId}`);
 
-    return comments;
+    return { description: issue?.description ?? null, comments };
   }
 
-  async getAuthenticatedUser(): Promise<string | null> {
-    const query = `{ viewer { name } }`;
+  async getAuthenticatedUser(): Promise<string[] | null> {
+    const query = `{ viewer { name displayName } }`;
     try {
       const response = await fetchWithTimeout(this.apiUrl, {
         method: 'POST',
@@ -114,7 +121,13 @@ export class LinearComments {
         return null;
       }
 
-      return data.data?.viewer?.name ?? null;
+      const viewer = data.data?.viewer;
+      if (!viewer?.name) return null;
+      const names: string[] = [viewer.name];
+      if (viewer.displayName && viewer.displayName !== viewer.name) {
+        names.push(viewer.displayName);
+      }
+      return names;
     } catch (error) {
       logger.error('Error fetching authenticated Linear user', error);
       return null;
